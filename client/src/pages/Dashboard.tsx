@@ -47,9 +47,12 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== "admin")) {
-      setLocation("/home");
+    if (authLoading) return;
+    if (!user) {
+      setLocation("/");
+      return;
     }
+    if (user.role !== "admin") setLocation("/home");
   }, [authLoading, setLocation, user]);
 
   const config = useMemo(
