@@ -8,6 +8,7 @@ import {
   roleBasedFixture,
   type EnterpriseFixture,
 } from "./fixtures/enterpriseIdpFixtures";
+import type { User } from "../drizzle/schema";
 
 // Mock the storage module
 vi.mock("./storage", () => ({
@@ -17,9 +18,32 @@ vi.mock("./storage", () => ({
   }),
 }));
 
-function createMockContext(): TrpcContext {
+const mockParticipantUser: User = {
+  id: 9002,
+  openId: "local:user@idp.local",
+  name: "IDP Participant",
+  email: "user@idp.local",
+  loginMethod: "credentials",
+  role: "user",
+  organizationId: null,
+  organizationName: null,
+  participantId: null,
+  createdAt: new Date("2026-07-15T00:00:00.000Z"),
+  updatedAt: new Date("2026-07-15T00:00:00.000Z"),
+  lastSignedIn: new Date("2026-07-15T00:00:00.000Z"),
+};
+
+const otherParticipantUser: User = {
+  ...mockParticipantUser,
+  id: 9003,
+  openId: "local:other@idp.local",
+  name: "Other Participant",
+  email: "other@idp.local",
+};
+
+function createMockContext(user: User | null = mockParticipantUser): TrpcContext {
   return {
-    user: null,
+    user,
     req: {
       protocol: "https",
       headers: {},
@@ -29,6 +53,20 @@ function createMockContext(): TrpcContext {
     } as unknown as TrpcContext["res"],
   };
 }
+
+describe("idp protected access", () => {
+  it("should reject unauthenticated file uploads", async () => {
+    const caller = appRouter.createCaller(createMockContext(null));
+
+    await expect(
+      caller.idp.uploadFile({
+        filename: "test-document.pdf",
+        contentType: "application/pdf",
+        base64Data: "dGVzdA==",
+      })
+    ).rejects.toThrow(/please login|unauthorized/i);
+  });
+});
 
 describe("idp.uploadFile", () => {
   it("should upload a file and return file info", async () => {
@@ -168,6 +206,13 @@ describe("enterprise IDP modes", () => {
     expect(idp.confirmedInsights?.length).toBeGreaterThan(0);
     expect(idp.objectives).toHaveLength(3);
     expect((idp.objectives as any[])[0].sourceEvidence).toBeDefined();
+  });
+
+  it("should prevent another participant from opening a generated IDP directly", async () => {
+    const { generated } = await generateEnterpriseIdp(programBasedFixture());
+    const otherCaller = appRouter.createCaller(createMockContext(otherParticipantUser));
+
+    await expect(otherCaller.idp.getIdp({ id: generated.id })).rejects.toThrow(/access/i);
   });
 });
 

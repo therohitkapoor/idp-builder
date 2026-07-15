@@ -24,7 +24,7 @@ import {
   saveAdminConfiguration,
 } from "./db";
 import { sdk } from "./_core/sdk";
-import { idpRecords, users } from "../drizzle/schema";
+import { idpRecords, users, type User } from "../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -1963,6 +1963,7 @@ const addLeadershipReflectionFields = (
 };
 
 const saveLocalIdpRecord = ({
+  userId,
   employeeDetails,
   uploadedFiles,
   manualInput,
@@ -1981,6 +1982,7 @@ const saveLocalIdpRecord = ({
   recordStatus = "completed",
   managerReview,
 }: {
+  userId: number;
   employeeDetails: ReturnType<typeof normalizeEmployeeDetails>;
   uploadedFiles: Array<z.infer<typeof uploadedFileSchema>>;
   manualInput?: string;
@@ -2015,7 +2017,7 @@ const saveLocalIdpRecord = ({
 
   const record = {
     id,
-    userId: 1,
+    userId,
     employeeName: employeeDetails.employeeName,
     position: employeeDetails.position || null,
     company: employeeDetails.company,
@@ -2069,9 +2071,54 @@ const saveLocalIdpRecord = ({
 
 const getLocalIdpRecord = (id: number) => localIdpRecords.get(id);
 
+const isLegacyLocalRecord = (record: any) =>
+  !process.env.DATABASE_URL && Number(record?.userId) === 1;
+
+const canAccessIdpRecord = (record: any, user: User) => {
+  if (user.role === "admin") return true;
+  if (Number(record?.userId) === user.id) return true;
+  // Preserve local-only reports created before authenticated ownership existed.
+  return isLegacyLocalRecord(record) && user.openId?.startsWith("local:");
+};
+
+const assertCanAccessIdpRecord = (record: any, user: User) => {
+  if (!canAccessIdpRecord(record, user)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You do not have access to this IDP.",
+    });
+  }
+};
+
+const loadIdpRecordForUser = async (id: number, user: User) => {
+  const existingLocalRecord = getLocalIdpRecord(id);
+  if (existingLocalRecord) {
+    assertCanAccessIdpRecord(existingLocalRecord, user);
+    return existingLocalRecord;
+  }
+
+  const db = await getDb();
+  if (!db) {
+    throw new Error("IDP not found");
+  }
+
+  const result = await db
+    .select()
+    .from(idpRecords)
+    .where(eq(idpRecords.id, id))
+    .limit(1);
+
+  if (result.length === 0) {
+    throw new Error("IDP not found");
+  }
+
+  assertCanAccessIdpRecord(result[0], user);
+  return result[0];
+};
+
 // IDP Router
 const idpRouter = router({
-  getEnterpriseDefaults: publicProcedure.query(async ({ ctx }) => {
+  getEnterpriseDefaults: protectedProcedure.query(async ({ ctx }) => {
     const config = normalizeAdminConfiguration(await getAdminConfiguration());
     const userOrganizationId = ctx.user?.organizationId || "";
     const selectedOrganization =
@@ -2118,7 +2165,7 @@ const idpRouter = router({
   }),
 
   // Upload a file to S3
-  uploadFile: publicProcedure
+  uploadFile: protectedProcedure
     .input(
       z.object({
         filename: z.string().min(1),
@@ -2215,7 +2262,7 @@ const idpRouter = router({
       }
     }),
 
-  extractInsights: publicProcedure
+  extractInsights: protectedProcedure
     .input(
       z.object({
         employeeDetails: z.object({
@@ -2261,7 +2308,7 @@ const idpRouter = router({
     }),
 
   // Generate IDP using AI
-  generateIdp: publicProcedure
+  generateIdp: protectedProcedure
     .input(
       z.object({
         employeeDetails: z.object({
@@ -2814,7 +2861,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       if (db) {
         try {
           const insertResult = await db.insert(idpRecords).values({
-            userId: 1, // Default user ID for now, will be replaced with ctx.user.id when auth is required
+            userId: ctx.user.id,
             employeeName: employeeDetails.employeeName,
             position: employeeDetails.position || null,
             company: employeeDetails.company,
@@ -2856,6 +2903,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
         } catch (error) {
           console.warn("[IDP] Database save failed, using local memory store:", error);
           insertedId = saveLocalIdpRecord({
+            userId: ctx.user.id,
             employeeDetails,
             uploadedFiles,
             manualInput,
@@ -2877,6 +2925,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
         }
       } else {
         insertedId = saveLocalIdpRecord({
+          userId: ctx.user.id,
           employeeDetails,
           uploadedFiles,
           manualInput,
@@ -2921,52 +2970,37 @@ Write the user-facing plan in ${outputLanguageName}.`;
     }),
 
   // Get IDP by ID
-  getIdp: publicProcedure
+  getIdp: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
-      const existingLocalRecord = getLocalIdpRecord(input.id);
-      if (existingLocalRecord) {
-        return existingLocalRecord;
-      }
-
-      const db = await getDb();
-      if (!db) {
-        throw new Error("IDP not found");
-      }
-
-      const result = await db
-        .select()
-        .from(idpRecords)
-        .where(eq(idpRecords.id, input.id))
-        .limit(1);
-
-      if (result.length === 0) {
-        throw new Error("IDP not found");
-      }
-
-      return result[0];
+    .query(async ({ input, ctx }) => {
+      return loadIdpRecordForUser(input.id, ctx.user);
     }),
 
   // List all IDPs
-  listIdps: publicProcedure
-    .query(async () => {
+  listIdps: protectedProcedure
+    .query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) {
-        return Array.from(localIdpRecords.values()).sort(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-        );
+        return Array.from(localIdpRecords.values())
+          .filter((record) => canAccessIdpRecord(record, ctx.user))
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
       }
 
-      const result = await db
-        .select()
-        .from(idpRecords)
-        .orderBy(desc(idpRecords.createdAt));
+      const query = db.select().from(idpRecords).orderBy(desc(idpRecords.createdAt));
+      const result =
+        ctx.user.role === "admin"
+          ? await query
+          : await db
+              .select()
+              .from(idpRecords)
+              .where(eq(idpRecords.userId, ctx.user.id))
+              .orderBy(desc(idpRecords.createdAt));
 
       return result;
     }),
 
   // Update objective status and progress
-  updateObjectiveStatus: publicProcedure
+  updateObjectiveStatus: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -2987,9 +3021,10 @@ Write the user-facing plan in ${outputLanguageName}.`;
         checkIn: checkInSchema.omit({ id: true, createdAt: true, objectiveIndex: true }).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const objectives = (existingLocalRecord.objectives as any[]) || [];
         if (input.objectiveIndex < 0 || input.objectiveIndex >= objectives.length) {
           throw new Error("Invalid objective index");
@@ -3041,6 +3076,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       }
 
       const idp = result[0];
+      assertCanAccessIdpRecord(idp, ctx.user);
       const objectives = (idp.objectives as any[]) || [];
 
       if (input.objectiveIndex < 0 || input.objectiveIndex >= objectives.length) {
@@ -3085,12 +3121,13 @@ Write the user-facing plan in ${outputLanguageName}.`;
       return { success: true, objectives };
     }),
 
-  submitForManagerReview: publicProcedure
+  submitForManagerReview: protectedProcedure
     .input(z.object({ idpId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const submittedAt = new Date().toISOString();
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const currentReview = (existingLocalRecord.managerReview || createDefaultManagerReview(existingLocalRecord.directManager)) as ManagerReview;
         const managerReview: ManagerReview = {
           ...currentReview,
@@ -3110,6 +3147,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
       const idp = result[0] as any;
+      assertCanAccessIdpRecord(idp, ctx.user);
       const currentReview = (idp.managerReview || createDefaultManagerReview(idp.directManager)) as ManagerReview;
       const managerReview: ManagerReview = {
         ...currentReview,
@@ -3121,7 +3159,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       return { success: true, managerReview };
     }),
 
-  addManagerReviewInput: publicProcedure
+  addManagerReviewInput: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -3135,7 +3173,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
         }).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const applyReviewInput = (record: any) => {
         const managerReview = (record.managerReview || createDefaultManagerReview(record.directManager)) as ManagerReview;
         const nextReview: ManagerReview = {
@@ -3172,6 +3210,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
 
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const managerReview = applyReviewInput(existingLocalRecord);
         existingLocalRecord.managerReview = managerReview;
         existingLocalRecord.updatedAt = new Date();
@@ -3183,12 +3222,13 @@ Write the user-facing plan in ${outputLanguageName}.`;
       if (!db) throw new Error("IDP not found");
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
+      assertCanAccessIdpRecord(result[0], ctx.user);
       const managerReview = applyReviewInput(result[0]);
       await db.update(idpRecords).set({ managerReview }).where(eq(idpRecords.id, input.idpId));
       return { success: true, managerReview };
     }),
 
-  resolveManagerEdit: publicProcedure
+  resolveManagerEdit: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -3196,7 +3236,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
         status: z.enum(["accepted", "rejected"]),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const resolveReview = (record: any) => {
         const managerReview = (record.managerReview || createDefaultManagerReview(record.directManager)) as ManagerReview;
         return {
@@ -3209,6 +3249,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
 
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const managerReview = resolveReview(existingLocalRecord);
         existingLocalRecord.managerReview = managerReview;
         existingLocalRecord.updatedAt = new Date();
@@ -3220,17 +3261,19 @@ Write the user-facing plan in ${outputLanguageName}.`;
       if (!db) throw new Error("IDP not found");
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
+      assertCanAccessIdpRecord(result[0], ctx.user);
       const managerReview = resolveReview(result[0]);
       await db.update(idpRecords).set({ managerReview }).where(eq(idpRecords.id, input.idpId));
       return { success: true, managerReview };
     }),
 
-  markManagerReviewed: publicProcedure
+  markManagerReviewed: protectedProcedure
     .input(z.object({ idpId: z.number(), managerSummaryComment: z.string().optional() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const reviewedAt = new Date().toISOString();
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const currentReview = (existingLocalRecord.managerReview || createDefaultManagerReview(existingLocalRecord.directManager)) as ManagerReview;
         const managerReview: ManagerReview = {
           ...currentReview,
@@ -3250,6 +3293,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
       const idp = result[0] as any;
+      assertCanAccessIdpRecord(idp, ctx.user);
       const currentReview = (idp.managerReview || createDefaultManagerReview(idp.directManager)) as ManagerReview;
       const managerReview: ManagerReview = {
         ...currentReview,
@@ -3261,11 +3305,12 @@ Write the user-facing plan in ${outputLanguageName}.`;
       return { success: true, managerReview };
     }),
 
-  agreeReviewDates: publicProcedure
+  agreeReviewDates: protectedProcedure
     .input(z.object({ idpId: z.number(), reviewDates: z.array(z.string()) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const currentReview = (existingLocalRecord.managerReview || createDefaultManagerReview(existingLocalRecord.directManager)) as ManagerReview;
         const managerReview: ManagerReview = {
           ...currentReview,
@@ -3282,6 +3327,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
       const idp = result[0] as any;
+      assertCanAccessIdpRecord(idp, ctx.user);
       const currentReview = (idp.managerReview || createDefaultManagerReview(idp.directManager)) as ManagerReview;
       const managerReview: ManagerReview = {
         ...currentReview,
@@ -3292,7 +3338,7 @@ Write the user-facing plan in ${outputLanguageName}.`;
     }),
 
   // Get coaching advice based on IDP progress
-  getCoachingAdvice: publicProcedure
+  getCoachingAdvice: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -3306,14 +3352,18 @@ Write the user-facing plan in ${outputLanguageName}.`;
         ),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { objectives, userMessage, conversationHistory } = input;
+      await loadIdpRecordForUser(input.idpId, ctx.user);
 
       // Calculate progress statistics
       const totalObjectives = objectives.length;
       const completedObjectives = objectives.filter((obj: any) => obj.status === "completed").length;
       const inProgressObjectives = objectives.filter((obj: any) => obj.status === "in_progress").length;
-      const avgProgress = objectives.reduce((sum: number, obj: any) => sum + (obj.progress || 0), 0) / totalObjectives;
+      const avgProgress =
+        totalObjectives > 0
+          ? objectives.reduce((sum: number, obj: any) => sum + (obj.progress || 0), 0) / totalObjectives
+          : 0;
 
       const systemPrompt = `You are an experienced career development coach and mentor. You're helping an employee work through their Individual Development Plan (IDP).
 
@@ -3353,15 +3403,16 @@ Keep responses concise (under 200 words) but meaningful.`;
     }),
 
   // Get learning resource recommendations
-  getLearningResources: publicProcedure
+  getLearningResources: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
         objectives: z.array(z.any()),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { idpId, objectives } = input;
+      const existingRecord = await loadIdpRecordForUser(idpId, ctx.user);
 
       const systemPrompt = `You are an enterprise learning and development advisor. Based on the participant's IDP priorities, recommend a small, relevant set of learning resources.
 
@@ -3494,21 +3545,26 @@ Output as JSON with this structure:
           .update(idpRecords)
           .set({ learningResources: resourcesData.resources })
           .where(eq(idpRecords.id, idpId));
+      } else if (existingRecord) {
+        existingRecord.learningResources = resourcesData.resources;
+        existingRecord.updatedAt = new Date();
+        setLocalIdpRecord(idpId, existingRecord);
       }
 
       return resourcesData;
     }),
 
-  updateLearningResources: publicProcedure
+  updateLearningResources: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
         resources: z.array(z.any()),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         existingLocalRecord.learningResources = input.resources;
         existingLocalRecord.updatedAt = new Date();
         setLocalIdpRecord(input.idpId, existingLocalRecord);
@@ -3517,18 +3573,23 @@ Output as JSON with this structure:
 
       const db = await getDb();
       if (db) {
+        const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
+        if (result.length === 0) throw new Error("IDP not found");
+        assertCanAccessIdpRecord(result[0], ctx.user);
         await db
           .update(idpRecords)
           .set({ learningResources: input.resources })
           .where(eq(idpRecords.id, input.idpId));
+      } else {
+        throw new Error("IDP not found");
       }
 
       return { success: true, resources: input.resources };
     }),
 
-  finalizeIdp: publicProcedure
+  finalizeIdp: protectedProcedure
     .input(z.object({ idpId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const publishedAt = new Date().toISOString();
       const finalizeRecord = (record: any) => ({
         ...record,
@@ -3546,6 +3607,7 @@ Output as JSON with this structure:
 
       const existingLocalRecord = getLocalIdpRecord(input.idpId);
       if (existingLocalRecord) {
+        assertCanAccessIdpRecord(existingLocalRecord, ctx.user);
         const finalized = finalizeRecord(existingLocalRecord);
         setLocalIdpRecord(input.idpId, finalized);
         return {
@@ -3559,6 +3621,7 @@ Output as JSON with this structure:
       if (!db) throw new Error("IDP not found");
       const result = await db.select().from(idpRecords).where(eq(idpRecords.id, input.idpId)).limit(1);
       if (result.length === 0) throw new Error("IDP not found");
+      assertCanAccessIdpRecord(result[0], ctx.user);
 
       const finalized = finalizeRecord(result[0]);
       await db
@@ -3577,7 +3640,7 @@ Output as JSON with this structure:
     }),
 
   // Send IDP via email
-  sendIdpEmail: publicProcedure
+  sendIdpEmail: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -3586,7 +3649,7 @@ Output as JSON with this structure:
         message: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { idpId, recipientEmail, recipientName, message } = input;
 
       // Get the IDP
@@ -3606,6 +3669,7 @@ Output as JSON with this structure:
       }
 
       const idp = result[0];
+      assertCanAccessIdpRecord(idp, ctx.user);
       const objectives = (idp.objectives as any[]) || [];
 
       // Build email content
@@ -3668,7 +3732,7 @@ To view the full interactive IDP with progress tracking, please visit: [IDP Link
     }),
 
   // Save signature
-  saveSignature: publicProcedure
+  saveSignature: protectedProcedure
     .input(
       z.object({
         idpId: z.number(),
@@ -3676,12 +3740,15 @@ To view the full interactive IDP with progress tracking, please visit: [IDP Link
         signatureData: z.string(),  // Base64 encoded image
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { idpId, signatureType, signatureData } = input;
       const db = await getDb();
       if (!db) {
         throw new Error("Database not available");
       }
+      const result = await db.select().from(idpRecords).where(eq(idpRecords.id, idpId)).limit(1);
+      if (result.length === 0) throw new Error("IDP not found");
+      assertCanAccessIdpRecord(result[0], ctx.user);
 
       const updateData: any = {};
       if (signatureType === "employee") {
@@ -3703,7 +3770,7 @@ To view the full interactive IDP with progress tracking, please visit: [IDP Link
     }),
 
   // Help chatbot
-  chat: publicProcedure
+  chat: protectedProcedure
     .input(z.object({ message: z.string() }))
     .mutation(async ({ input }) => {
       const systemPrompt = `You are a helpful assistant for the Emeritus Leadership Reflection Platform. Your role is to help users understand:
@@ -3946,7 +4013,7 @@ export const appRouter = router({
       }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      ctx.res.clearCookie(COOKIE_NAME, cookieOptions);
       return {
         success: true,
       } as const;

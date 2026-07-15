@@ -45,6 +45,17 @@ const defaultCredentialSeeds = [
   },
 ];
 
+const isTestRuntime = Boolean(process.env.VITEST || process.env.VITEST_WORKER_ID);
+const isHostedRuntime = Boolean(
+  process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.AWS_EXECUTION_ENV
+);
+export const sampleCredentialAccountsEnabled =
+  process.env.IDP_ENABLE_SAMPLE_ACCOUNTS === "true" ||
+  (!isHostedRuntime && (isTestRuntime || !process.env.DATABASE_URL));
+const enabledDefaultCredentialSeeds = sampleCredentialAccountsEnabled ? defaultCredentialSeeds : [];
+
 const seedEmails = new Set(defaultCredentialSeeds.map((seed) => seed.email));
 type LocalCredentialPassword = {
   openId: string;
@@ -53,7 +64,7 @@ type LocalCredentialPassword = {
 };
 
 const localCredentialUsers = new Map<string, User>(
-  defaultCredentialSeeds.map((seed) => {
+  enabledDefaultCredentialSeeds.map((seed) => {
     const now = new Date();
     return [
       seed.openId,
@@ -76,7 +87,7 @@ const localCredentialUsers = new Map<string, User>(
 );
 
 const localCredentialPasswords = new Map<string, LocalCredentialPassword>(
-  defaultCredentialSeeds.map((seed) => [
+  enabledDefaultCredentialSeeds.map((seed) => [
     seed.email,
     {
       openId: seed.openId,
@@ -127,7 +138,7 @@ function hydrateLocalCredentials() {
     }
   }
 
-  for (const seed of defaultCredentialSeeds) {
+  for (const seed of enabledDefaultCredentialSeeds) {
     if (!localCredentialUsers.has(seed.openId)) {
       const now = new Date();
       localCredentialUsers.set(seed.openId, {
@@ -398,7 +409,7 @@ export async function loginWithCredentials(email: string, password: string): Pro
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail || !password) return null;
 
-  const seed = defaultCredentialSeeds.find((account) => account.email === normalizedEmail);
+  const seed = enabledDefaultCredentialSeeds.find((account) => account.email === normalizedEmail);
   const db = await getDb();
 
   if (!db) {

@@ -37,6 +37,11 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const oauthUrl = useMemo(() => getOAuthLoginUrl(), []);
+  const showSampleAccounts = useMemo(() => {
+    const hostname = typeof window === "undefined" ? "" : window.location.hostname;
+    const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(hostname);
+    return import.meta.env.VITE_SHOW_SAMPLE_ACCOUNTS === "true" || isLocalHost;
+  }, []);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async (result) => {
@@ -98,33 +103,35 @@ export default function Login() {
             </p>
           </div>
 
-          <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
-            {sampleAccounts.map((account) => {
-              const Icon = account.icon;
-              return (
-                <button
-                  key={account.email}
-                  type="button"
-                  data-testid={`${account.label.toLowerCase()}-sample-login`}
-                  onClick={() => {
-                    setEmail(account.email);
-                    setPassword(account.password);
-                  }}
-                  className="rounded-lg border bg-white p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/60"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 font-semibold text-slate-900">
-                      <Icon className="h-4 w-4 text-emerald-600" />
-                      {account.label}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <p className="text-sm leading-6 text-slate-600">{account.description}</p>
-                  <p className="mt-3 text-xs font-medium text-slate-500">{account.email}</p>
-                </button>
-              );
-            })}
-          </div>
+          {showSampleAccounts && (
+            <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
+              {sampleAccounts.map((account) => {
+                const Icon = account.icon;
+                return (
+                  <button
+                    key={account.email}
+                    type="button"
+                    data-testid={`${account.label.toLowerCase()}-sample-login`}
+                    onClick={() => {
+                      setEmail(account.email);
+                      setPassword(account.password);
+                    }}
+                    className="rounded-lg border bg-white p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/60"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 font-semibold text-slate-900">
+                        <Icon className="h-4 w-4 text-emerald-600" />
+                        {account.label}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <p className="text-sm leading-6 text-slate-600">{account.description}</p>
+                    <p className="mt-3 text-xs font-medium text-slate-500">{account.email}</p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <Card className="rounded-lg border-slate-200 bg-white shadow-md">
