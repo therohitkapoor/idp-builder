@@ -4,6 +4,7 @@ import path from "node:path";
 
 const localDataDir = process.env.IDP_LOCAL_DATA_DIR || path.join(process.cwd(), "data");
 const isTestRuntime = Boolean(process.env.VITEST || process.env.VITEST_WORKER_ID);
+const useLocalDatabase = !process.env.DATABASE_URL;
 const localDatabasePath =
   process.env.IDP_LOCAL_DB_PATH || (isTestRuntime ? ":memory:" : path.join(localDataDir, "idp-local.sqlite"));
 const nodeRequire = createRequire(import.meta.url);
@@ -72,6 +73,7 @@ function protectLocalDatabaseFiles() {
 }
 
 export function readLocalJson<T>(fileName: string, fallback: T): T {
+  if (!useLocalDatabase) return fallback;
   const db = getLocalDatabase();
   const key = `json:${fileName}`;
 
@@ -97,6 +99,7 @@ export function readLocalJson<T>(fileName: string, fallback: T): T {
 }
 
 export function writeLocalJson(fileName: string, value: unknown) {
+  if (!useLocalDatabase) return;
   try {
     const db = getLocalDatabase();
     db.prepare(`
@@ -129,6 +132,7 @@ export type LocalUploadedDocument = {
 };
 
 export function saveLocalUploadedDocument(document: LocalUploadedDocument) {
+  if (!useLocalDatabase) return;
   try {
     const db = getLocalDatabase();
     db.prepare(`

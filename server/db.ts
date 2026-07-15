@@ -20,6 +20,7 @@ import {
 } from "../shared/adminConfig";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+const useLocalPersistence = !process.env.DATABASE_URL;
 
 const PASSWORD_ITERATIONS = 120_000;
 const PASSWORD_KEY_LENGTH = 32;
@@ -173,7 +174,9 @@ function persistLocalCredentials() {
   } satisfies PersistedLocalCredentials);
 }
 
-hydrateLocalCredentials();
+if (useLocalPersistence) {
+  hydrateLocalCredentials();
+}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -531,7 +534,9 @@ export async function syncParticipantCredentialUsers(config: AdminConfiguration)
 }
 
 let localAdminConfiguration = normalizeAdminConfiguration(
-  readLocalJson<AdminConfiguration>("local-admin-config.json", createDefaultAdminConfiguration())
+  useLocalPersistence
+    ? readLocalJson<AdminConfiguration>("local-admin-config.json", createDefaultAdminConfiguration())
+    : createDefaultAdminConfiguration()
 );
 
 export async function getAdminConfiguration(): Promise<AdminConfiguration> {
