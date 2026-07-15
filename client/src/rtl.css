@@ -1,0 +1,115 @@
+/* RTL (Right-to-Left) Styles for Arabic Language */
+
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Flip margins and paddings */
+[dir="rtl"] .ml-auto {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+[dir="rtl"] .mr-auto {
+  margin-right: 0 !important;
+  margin-left: auto !important;
+}
+
+/* Flip flex direction for navigation */
+[dir="rtl"] .flex-row-reverse {
+  flex-direction: row;
+}
+
+/* Fix text alignment in forms */
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: right;
+}
+
+/* Fix chart labels */
+[dir="rtl"] .recharts-text {
+  text-anchor: end !important;
+}
+
+/* Fix sidebar navigation */
+[dir="rtl"] .sidebar {
+  left: auto;
+  right: 0;
+}
+
+/* Fix dropdown menus */
+[dir="rtl"] .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+/* Fix icons in buttons */
+[dir="rtl"] .button-icon-left {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+[dir="rtl"] .button-icon-right {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+/* Fix table alignment */
+[dir="rtl"] table {
+  direction: rtl;
+}
+
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+
+/* Fix card layouts */
+[dir="rtl"] .card {
+  text-align: right;
+}
+
+/* Fix progress bars */
+[dir="rtl"] .progress-bar {
+  direction: ltr;
+}
+
+/* Fix tooltips */
+[dir="rtl"] .tooltip {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Fix breadcrumbs */
+[dir="rtl"] .breadcrumb {
+  direction: rtl;
+}
+
+/* Fix pagination */
+[dir="rtl"] .pagination {
+  direction: rtl;
+}
+
+/* Fix modal positioning */
+[dir="rtl"] .modal {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Fix list items */
+[dir="rtl"] ul,
+[dir="rtl"] ol {
+  padding-right: 1.5rem;
+  padding-left: 0;
+}
+
+/* Fix floating elements */
+[dir="rtl"] .float-left {
+  float: right !important;
+}
+
+[dir="rtl"] .float-right {
+  float: left !important;
+}

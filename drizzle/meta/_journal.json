@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1770055864058,
+      "tag": "0000_high_wild_child",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1770055999589,
+      "tag": "0001_first_mathemanic",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1770057257522,
+      "tag": "0002_talented_thena",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1770060685502,
+      "tag": "0003_lowly_star_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1770309274769,
+      "tag": "0004_dazzling_ultimatum",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1770360058298,
+      "tag": "0005_mature_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1770365429125,
+      "tag": "0006_free_alex_wilder",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1774373980990,
+      "tag": "0007_empty_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1783945800000,
+      "tag": "0008_enterprise_idp",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1784018400000,
+      "tag": "0009_admin_configuration",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1784022000000,
+      "tag": "0010_credential_accounts",
+      "breakpoints": true
+    }
+  ]
+}

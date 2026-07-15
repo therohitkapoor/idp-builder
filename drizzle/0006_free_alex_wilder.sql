@@ -1,0 +1,1 @@
+ALTER TABLE `idp_records` ADD `growModel` json;
