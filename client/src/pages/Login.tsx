@@ -115,7 +115,12 @@ export default function Login() {
                     onClick={() => {
                       setEmail(account.email);
                       setPassword(account.password);
+                      loginMutation.mutate({
+                        email: account.email,
+                        password: account.password,
+                      });
                     }}
+                    disabled={isSubmitting}
                     className="rounded-lg border bg-white p-4 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/60"
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">
