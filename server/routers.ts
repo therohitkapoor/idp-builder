@@ -21,6 +21,7 @@ import {
   deleteIdpsByIds,
   getAdminConfiguration,
   loginWithCredentials,
+  sampleCredentialAccountsEnabled,
   saveAdminConfiguration,
 } from "./db";
 import { sdk } from "./_core/sdk";
@@ -3980,6 +3981,9 @@ const adminRouter = router({
 export const appRouter = router({
   system: systemRouter,
   auth: router({
+    loginOptions: publicProcedure.query(() => ({
+      sampleAccountsEnabled: sampleCredentialAccountsEnabled,
+    })),
     me: publicProcedure.query((opts) => opts.ctx.user),
     login: publicProcedure
       .input(z.object({

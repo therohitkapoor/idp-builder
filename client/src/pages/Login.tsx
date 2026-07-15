@@ -37,11 +37,17 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const oauthUrl = useMemo(() => getOAuthLoginUrl(), []);
-  const showSampleAccounts = useMemo(() => {
+  const { data: loginOptions } = trpc.auth.loginOptions.useQuery(undefined, {
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const sampleAccountsAllowedByClient = useMemo(() => {
     const hostname = typeof window === "undefined" ? "" : window.location.hostname;
     const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(hostname);
     return import.meta.env.VITE_SHOW_SAMPLE_ACCOUNTS === "true" || isLocalHost;
   }, []);
+  const showSampleAccounts =
+    sampleAccountsAllowedByClient || Boolean(loginOptions?.sampleAccountsEnabled);
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async (result) => {

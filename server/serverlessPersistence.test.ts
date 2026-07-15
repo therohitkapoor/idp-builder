@@ -27,8 +27,22 @@ describe("serverless persistence fallback", () => {
 
       const { loginWithCredentials } = await import("./db");
       const user = await loginWithCredentials("admin@idp.local", "Admin@123");
+      const { appRouter } = await import("./routers");
+      const caller = appRouter.createCaller({
+        user: null,
+        req: {
+          protocol: "https",
+          headers: {},
+        },
+        res: {
+          cookie: vi.fn(),
+          clearCookie: vi.fn(),
+        },
+      } as never);
+      const loginOptions = await caller.auth.loginOptions();
 
       expect(user).toBeNull();
+      expect(loginOptions.sampleAccountsEnabled).toBe(false);
     } finally {
       restoreEnv("DATABASE_URL", previousDatabaseUrl);
       restoreEnv("NETLIFY", previousNetlify);
@@ -51,11 +65,25 @@ describe("serverless persistence fallback", () => {
 
       const { loginWithCredentials } = await import("./db");
       const user = await loginWithCredentials("admin@idp.local", "Admin@123");
+      const { appRouter } = await import("./routers");
+      const caller = appRouter.createCaller({
+        user: null,
+        req: {
+          protocol: "https",
+          headers: {},
+        },
+        res: {
+          cookie: vi.fn(),
+          clearCookie: vi.fn(),
+        },
+      } as never);
+      const loginOptions = await caller.auth.loginOptions();
 
       expect(user).toMatchObject({
         email: "admin@idp.local",
         role: "admin",
       });
+      expect(loginOptions.sampleAccountsEnabled).toBe(true);
     } finally {
       restoreEnv("DATABASE_URL", previousDatabaseUrl);
       restoreEnv("NETLIFY", previousNetlify);
