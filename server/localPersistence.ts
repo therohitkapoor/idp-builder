@@ -4,7 +4,13 @@ import path from "node:path";
 
 const localDataDir = process.env.IDP_LOCAL_DATA_DIR || path.join(process.cwd(), "data");
 const isTestRuntime = Boolean(process.env.VITEST || process.env.VITEST_WORKER_ID);
-const useLocalDatabase = !process.env.DATABASE_URL;
+const isServerlessRuntime = Boolean(
+  process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.AWS_EXECUTION_ENV
+);
+export const canUseLocalPersistence = !process.env.DATABASE_URL && !isServerlessRuntime;
+const useLocalDatabase = canUseLocalPersistence;
 const localDatabasePath =
   process.env.IDP_LOCAL_DB_PATH || (isTestRuntime ? ":memory:" : path.join(localDataDir, "idp-local.sqlite"));
 const nodeRequire = createRequire(import.meta.url);
@@ -74,10 +80,10 @@ function protectLocalDatabaseFiles() {
 
 export function readLocalJson<T>(fileName: string, fallback: T): T {
   if (!useLocalDatabase) return fallback;
-  const db = getLocalDatabase();
-  const key = `json:${fileName}`;
 
   try {
+    const db = getLocalDatabase();
+    const key = `json:${fileName}`;
     const row = db
       .prepare("SELECT value FROM app_state WHERE key = ?")
       .get(key) as { value?: string } | undefined;

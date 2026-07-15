@@ -11,7 +11,7 @@ import {
   type User,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
-import { readLocalJson, writeLocalJson } from "./localPersistence";
+import { canUseLocalPersistence, readLocalJson, writeLocalJson } from "./localPersistence";
 import { eq, count, max, desc, inArray } from 'drizzle-orm';
 import {
   type AdminConfiguration,
@@ -20,7 +20,7 @@ import {
 } from "../shared/adminConfig";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-const useLocalPersistence = !process.env.DATABASE_URL;
+const useLocalPersistence = canUseLocalPersistence;
 
 const PASSWORD_ITERATIONS = 120_000;
 const PASSWORD_KEY_LENGTH = 32;
