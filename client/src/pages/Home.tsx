@@ -1804,7 +1804,6 @@ function SelfInputsPanel({
 
   return (
     <div className="space-y-5">
-      <SectionIntro icon={User} title={t("selfInputsTitle")} description={t("selfInputsDescription")} />
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
@@ -1824,6 +1823,7 @@ function SelfInputsPanel({
           onRemoveFile={onRemoveFile}
         />
       </div>
+      <SectionIntro icon={User} title={t("selfInputsTitle")} description={t("selfInputsDescription")} />
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
