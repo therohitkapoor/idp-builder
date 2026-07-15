@@ -723,22 +723,8 @@ export default function Home() {
     () => Array.from(new Set([...activeEvidenceSourceTypes, ...defaultEvidenceSources])),
     [activeEvidenceSourceTypes]
   );
-  const scopedContextInputs = useMemo(
-    () => scopeContextInputs(contextInputs, activeEvidenceSections),
-    [activeEvidenceSections, contextInputs]
-  );
-  const scopedSourceFiles = useMemo(() => {
-    const activeSourceSet = new Set(activeSupportingSources);
-    return sourceFiles.filter((file) => activeSourceSet.has(file.sourceType));
-  }, [activeSupportingSources, sourceFiles]);
-  const scopedEvidenceFiles = useMemo(() => {
-    const evidenceSourceSet = new Set(activeEvidenceSourceTypes);
-    return sourceFiles.filter((file) => evidenceSourceSet.has(file.sourceType));
-  }, [activeEvidenceSourceTypes, sourceFiles]);
-  const hasEvidenceInputs = useMemo(() => {
-    const sectionSet = new Set(activeEvidenceSections);
-    const hasAssessmentInputs =
-      sectionSet.has("assessment") &&
+  const hasSelfAssessmentInputs = useMemo(
+    () =>
       contextInputs.assessments.some(
         (assessment) =>
           assessment.files.length > 0 ||
@@ -748,7 +734,34 @@ export default function Home() {
               assessment.assessmentDate.trim() ||
               assessment.summary.trim()
           )
-      );
+      ),
+    [contextInputs.assessments]
+  );
+  const effectiveSupportingSources = useMemo(
+    () =>
+      hasSelfAssessmentInputs
+        ? Array.from(new Set([...activeSupportingSources, "assessment" as SupportingSourceType]))
+        : activeSupportingSources,
+    [activeSupportingSources, hasSelfAssessmentInputs]
+  );
+  const scopedContextInputs = useMemo(
+    () => ({
+      ...scopeContextInputs(contextInputs, activeEvidenceSections),
+      assessments: contextInputs.assessments,
+    }),
+    [activeEvidenceSections, contextInputs]
+  );
+  const scopedSourceFiles = useMemo(() => {
+    const activeSourceSet = new Set(effectiveSupportingSources);
+    return sourceFiles.filter((file) => activeSourceSet.has(file.sourceType));
+  }, [effectiveSupportingSources, sourceFiles]);
+  const scopedEvidenceFiles = useMemo(() => {
+    const evidenceSourceSet = new Set(activeEvidenceSourceTypes);
+    return sourceFiles.filter((file) => evidenceSourceSet.has(file.sourceType));
+  }, [activeEvidenceSourceTypes, sourceFiles]);
+  const hasEvidenceInputs = useMemo(() => {
+    const sectionSet = new Set(activeEvidenceSections);
+    const hasAssessmentInputs = hasSelfAssessmentInputs;
     const hasProgramInputs =
       sectionSet.has("program") &&
       Boolean(
@@ -775,7 +788,7 @@ export default function Home() {
       );
 
     return scopedEvidenceFiles.length > 0 || hasAssessmentInputs || hasProgramInputs || hasRoleInputs;
-  }, [activeEvidenceSections, contextInputs, scopedEvidenceFiles.length]);
+  }, [activeEvidenceSections, contextInputs, hasSelfAssessmentInputs, scopedEvidenceFiles.length]);
   const hasSelfInputs = Boolean(
     contextInputs.participant.careerAspiration.trim() ||
       contextInputs.participant.developmentPriorities.trim() ||
@@ -1027,7 +1040,7 @@ export default function Home() {
     return [
       t("programmeCompletedInput", { programme: employeeDetails.programmeName || t("notSpecified") }),
       t("selectedModeInput", { mode: selectedApproachText }),
-      t("supportingSourcesInput", { sources: activeSupportingSources.map((source) => getSourceLabel(source, t)).join(", ") || t("notSpecified") }),
+      t("supportingSourcesInput", { sources: effectiveSupportingSources.map((source) => getSourceLabel(source, t)).join(", ") || t("notSpecified") }),
       t("leadershipFocusInput", { focus: selectedLeadershipText || t("notSpecified") }),
       t("developmentFrameworkInput", { framework: t(frameworkOptions.find((option) => option.value === developmentFramework)?.labelKey || "frameworkExperiencePeopleLearning") }),
       t("aspirationInput", { aspiration: employeeDetails.aspiration || t("notSpecified") }),
@@ -1064,7 +1077,7 @@ export default function Home() {
         directManager: employeeDetails.directManager,
       },
       idpMode: selectedMode,
-      supportingSources: activeSupportingSources,
+      supportingSources: effectiveSupportingSources,
       sourceFiles: scopedSourceFiles,
       contextInputs: scopedContextInputs,
       aspiration: employeeDetails.aspiration,
@@ -1121,7 +1134,7 @@ export default function Home() {
         organizationLogo,
         language: selectedLanguage,
         idpMode: selectedMode,
-        supportingSources: activeSupportingSources,
+        supportingSources: effectiveSupportingSources,
         contextInputs: scopedContextInputs,
         extractedInsights: insights,
         confirmedInsights,
@@ -1344,7 +1357,6 @@ export default function Home() {
                         <SelfInputsPanel
                           contextInputs={contextInputs}
                           uploadingTargets={uploadingTargets}
-                          allowAssessmentUpload={activeEvidenceSourceTypes.includes("assessment")}
                           onContextChange={(next) => {
                             setContextInputs(next);
                             setInsights([]);
@@ -1388,7 +1400,7 @@ export default function Home() {
                         <GeneratePanel
                           employeeDetails={employeeDetails}
                           selectedApproaches={selectedApproaches}
-                          supportingSources={activeSupportingSources}
+                          supportingSources={effectiveSupportingSources}
                           sourceFiles={scopedSourceFiles}
                           insights={insights}
                           completedReflectionCount={completedReflectionCount}
@@ -1766,14 +1778,12 @@ function EvidenceStep({
 function SelfInputsPanel({
   contextInputs,
   uploadingTargets,
-  allowAssessmentUpload,
   onContextChange,
   onFileUpload,
   onRemoveFile,
 }: {
   contextInputs: EnterpriseContextInputs;
   uploadingTargets: Record<string, number>;
-  allowAssessmentUpload: boolean;
   onContextChange: (context: EnterpriseContextInputs) => void;
   onFileUpload: (sourceType: SupportingSourceType, target: FileTarget) => (e: ChangeEvent<HTMLInputElement>) => void;
   onRemoveFile: (fileId: string) => void;
@@ -1798,6 +1808,25 @@ function SelfInputsPanel({
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
+            <h3 className="text-base font-semibold text-slate-950">{t("uploadAssessmentReport")}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{t("assessmentInputsDescription")}</p>
+          </div>
+          <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
+            {t("sourceAssessment")}
+          </Badge>
+        </div>
+        <UploadBox
+          id="self-assessment-upload"
+          label={t("uploadAssessmentReport")}
+          files={primaryAssessment.files}
+          progress={uploadingTargets[`assessment-assessment-${primaryAssessment.id}`]}
+          onChange={onFileUpload("assessment", { type: "assessment", assessmentId: primaryAssessment.id })}
+          onRemoveFile={onRemoveFile}
+        />
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
             <h3 className="text-base font-semibold text-slate-950">{t("selfInputsTitle")}</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">{t("selfInputsDescription")}</p>
           </div>
@@ -1806,16 +1835,6 @@ function SelfInputsPanel({
           </Badge>
         </div>
         <div className="grid gap-4">
-          {allowAssessmentUpload && (
-            <UploadBox
-              id="self-assessment-upload"
-              label={t("uploadAssessmentReport")}
-              files={primaryAssessment.files}
-              progress={uploadingTargets[`assessment-assessment-${primaryAssessment.id}`]}
-              onChange={onFileUpload("assessment", { type: "assessment", assessmentId: primaryAssessment.id })}
-              onRemoveFile={onRemoveFile}
-            />
-          )}
           <TextAreaField label={t("careerAspiration")} value={contextInputs.participant.careerAspiration} onChange={(value) => updateParticipant("careerAspiration", value)} rows={3} assistContext="self" />
           <TextAreaField label={t("developmentPriorities")} value={contextInputs.participant.developmentPriorities} onChange={(value) => updateParticipant("developmentPriorities", value)} rows={3} assistContext="self" />
           <div className="grid gap-4 md:grid-cols-2">
