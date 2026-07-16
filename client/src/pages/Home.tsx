@@ -36,6 +36,7 @@ import LanguageSelector, {
   applyLanguagePreference,
   getLanguageLabel,
   getStoredOutputLanguage,
+  isSupportedLanguageCode,
   type LanguageCode,
 } from "@/components/LanguageSelector";
 import { Badge } from "@/components/ui/badge";
@@ -1712,7 +1713,7 @@ function EvidenceStep({
                   <Input type="date" value={assessment.assessmentDate} onChange={(e) => onUpdateAssessment(assessment.id, "assessmentDate", e.target.value)} />
                 </Field>
               </div>
-              <TextAreaField label={t("assessmentSummary")} value={assessment.summary} onChange={(value) => onUpdateAssessment(assessment.id, "summary", value)} rows={4} assistContext="assessment" />
+              <TextAreaField label={t("assessmentSummary")} value={assessment.summary} onChange={(value) => onUpdateAssessment(assessment.id, "summary", value)} rows={4} assistContext="assessment" assistKey="assessmentSummary" />
               <UploadBox
                 id={`assessment-${assessment.id}`}
                 label={t("uploadAssessmentReport")}
@@ -1740,10 +1741,10 @@ function EvidenceStep({
             <Input value={contextInputs.program.keyCompetencies} onChange={(e) => updateProgram("keyCompetencies", e.target.value)} />
           </Field>
         </div>
-        <TextAreaField label={t("programObjectives")} value={contextInputs.program.objectives} onChange={(value) => updateProgram("objectives", value)} rows={4} assistContext="program" />
-        <TextAreaField label={t("moduleThemes")} value={contextInputs.program.moduleThemes} onChange={(value) => updateProgram("moduleThemes", value)} rows={4} assistContext="program" />
-        <TextAreaField label={t("facultyCoachNotes")} value={contextInputs.program.facultyCoachNotes} onChange={(value) => updateProgram("facultyCoachNotes", value)} rows={4} assistContext="program" />
-        <TextAreaField label={t("programLearningSummary")} value={contextInputs.program.learningSummary} onChange={(value) => updateProgram("learningSummary", value)} rows={4} assistContext="program" />
+        <TextAreaField label={t("programObjectives")} value={contextInputs.program.objectives} onChange={(value) => updateProgram("objectives", value)} rows={4} assistContext="program" assistKey="programObjectives" />
+        <TextAreaField label={t("moduleThemes")} value={contextInputs.program.moduleThemes} onChange={(value) => updateProgram("moduleThemes", value)} rows={4} assistContext="program" assistKey="moduleThemes" />
+        <TextAreaField label={t("facultyCoachNotes")} value={contextInputs.program.facultyCoachNotes} onChange={(value) => updateProgram("facultyCoachNotes", value)} rows={4} assistContext="program" assistKey="facultyCoachNotes" />
+        <TextAreaField label={t("programLearningSummary")} value={contextInputs.program.learningSummary} onChange={(value) => updateProgram("learningSummary", value)} rows={4} assistContext="program" assistKey="programLearningSummary" />
         <div className="grid gap-4 md:grid-cols-2">
           <UploadBox id="program-documents" label={t("uploadProgramDocuments")} files={contextInputs.program.programDocuments} progress={uploadingTargets["program-programDocuments-"]} onChange={onFileUpload("program", { type: "programDocuments" })} onRemoveFile={onRemoveFile} />
           <UploadBox id="participant-assignments" label={t("uploadParticipantAssignments")} files={contextInputs.program.participantAssignments} progress={uploadingTargets["program-participantAssignments-"]} onChange={onFileUpload("program", { type: "participantAssignments" })} onRemoveFile={onRemoveFile} />
@@ -1761,8 +1762,8 @@ function EvidenceStep({
           <UploadBox id="success-profile" label={t("uploadSuccessProfile")} files={contextInputs.roleOrganization.successProfileFiles} progress={uploadingTargets["success_profile-successProfileFiles-"]} onChange={onFileUpload("success_profile", { type: "successProfileFiles" })} onRemoveFile={onRemoveFile} />
           <UploadBox id="strategic-priorities" label={t("uploadStrategicPriorities")} files={contextInputs.roleOrganization.strategicPriorityFiles} progress={uploadingTargets["strategic_priorities-strategicPriorityFiles-"]} onChange={onFileUpload("strategic_priorities", { type: "strategicPriorityFiles" })} onRemoveFile={onRemoveFile} />
         </div>
-        <TextAreaField label={t("futureRoleExpectations")} value={contextInputs.roleOrganization.futureRoleExpectations} onChange={(value) => updateRoleOrg("futureRoleExpectations", value)} rows={4} assistContext="role" />
-        <TextAreaField label={t("organizationSuccessMeasures")} value={contextInputs.roleOrganization.successMeasures} onChange={(value) => updateRoleOrg("successMeasures", value)} rows={4} assistContext="role" />
+        <TextAreaField label={t("futureRoleExpectations")} value={contextInputs.roleOrganization.futureRoleExpectations} onChange={(value) => updateRoleOrg("futureRoleExpectations", value)} rows={4} assistContext="role" assistKey="futureRoleExpectations" />
+        <TextAreaField label={t("organizationSuccessMeasures")} value={contextInputs.roleOrganization.successMeasures} onChange={(value) => updateRoleOrg("successMeasures", value)} rows={4} assistContext="role" assistKey="organizationSuccessMeasures" />
       </EvidenceSection>
       )}
 
@@ -1835,13 +1836,13 @@ function SelfInputsPanel({
           </Badge>
         </div>
         <div className="grid gap-4">
-          <TextAreaField label={t("careerAspiration")} value={contextInputs.participant.careerAspiration} onChange={(value) => updateParticipant("careerAspiration", value)} rows={3} assistContext="self" />
-          <TextAreaField label={t("developmentPriorities")} value={contextInputs.participant.developmentPriorities} onChange={(value) => updateParticipant("developmentPriorities", value)} rows={3} assistContext="self" />
+          <TextAreaField label={t("careerAspiration")} value={contextInputs.participant.careerAspiration} onChange={(value) => updateParticipant("careerAspiration", value)} rows={3} assistContext="self" assistKey="careerAspiration" />
+          <TextAreaField label={t("developmentPriorities")} value={contextInputs.participant.developmentPriorities} onChange={(value) => updateParticipant("developmentPriorities", value)} rows={3} assistContext="self" assistKey="developmentPriorities" />
           <div className="grid gap-4 md:grid-cols-2">
-            <TextAreaField label={t("currentChallenges")} value={contextInputs.participant.currentChallenges} onChange={(value) => updateParticipant("currentChallenges", value)} rows={3} assistContext="self" />
-            <TextAreaField label={t("desiredBusinessImpact")} value={contextInputs.participant.desiredBusinessImpact} onChange={(value) => updateParticipant("desiredBusinessImpact", value)} rows={3} assistContext="self" />
+            <TextAreaField label={t("currentChallenges")} value={contextInputs.participant.currentChallenges} onChange={(value) => updateParticipant("currentChallenges", value)} rows={3} assistContext="self" assistKey="currentChallenges" />
+            <TextAreaField label={t("desiredBusinessImpact")} value={contextInputs.participant.desiredBusinessImpact} onChange={(value) => updateParticipant("desiredBusinessImpact", value)} rows={3} assistContext="self" assistKey="desiredBusinessImpact" />
           </div>
-          <TextAreaField label={t("additionalContext")} value={contextInputs.participant.additionalContext} onChange={(value) => updateParticipant("additionalContext", value)} rows={3} assistContext="self" />
+          <TextAreaField label={t("additionalContext")} value={contextInputs.participant.additionalContext} onChange={(value) => updateParticipant("additionalContext", value)} rows={3} assistContext="self" assistKey="additionalContext" />
         </div>
       </div>
     </div>
@@ -1882,15 +1883,15 @@ function ManagerInputsPanel({
         </div>
         <UploadBox id="manager-notes" label={t("uploadManagerConversation")} files={contextInputs.manager.conversationFiles} progress={uploadingTargets["manager_notes-managerConversationFiles-"]} onChange={onFileUpload("manager_notes", { type: "managerConversationFiles" })} onRemoveFile={onRemoveFile} />
         <div className="mt-4 grid gap-4">
-          <TextAreaField label={t("managerConversationSummary")} value={contextInputs.manager.conversationSummary} onChange={(value) => updateManager("conversationSummary", value)} rows={3} assistContext="manager" />
-          <TextAreaField label={t("managerAgreedGoals")} value={contextInputs.manager.agreedDevelopmentGoals} onChange={(value) => updateManager("agreedDevelopmentGoals", value)} rows={3} assistContext="manager" />
+          <TextAreaField label={t("managerConversationSummary")} value={contextInputs.manager.conversationSummary} onChange={(value) => updateManager("conversationSummary", value)} rows={3} assistContext="manager" assistKey="managerConversationSummary" />
+          <TextAreaField label={t("managerAgreedGoals")} value={contextInputs.manager.agreedDevelopmentGoals} onChange={(value) => updateManager("agreedDevelopmentGoals", value)} rows={3} assistContext="manager" assistKey="managerAgreedGoals" />
           <div className="grid gap-4 md:grid-cols-2">
-            <TextAreaField label={t("managerStrengths")} value={contextInputs.manager.strengthsIdentified} onChange={(value) => updateManager("strengthsIdentified", value)} rows={3} assistContext="manager" />
-            <TextAreaField label={t("managerDevelopmentAreas")} value={contextInputs.manager.developmentAreasIdentified} onChange={(value) => updateManager("developmentAreasIdentified", value)} rows={3} assistContext="manager" />
+            <TextAreaField label={t("managerStrengths")} value={contextInputs.manager.strengthsIdentified} onChange={(value) => updateManager("strengthsIdentified", value)} rows={3} assistContext="manager" assistKey="managerStrengths" />
+            <TextAreaField label={t("managerDevelopmentAreas")} value={contextInputs.manager.developmentAreasIdentified} onChange={(value) => updateManager("developmentAreasIdentified", value)} rows={3} assistContext="manager" assistKey="managerDevelopmentAreas" />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <TextAreaField label={t("managerSupportExpected")} value={contextInputs.manager.supportExpected} onChange={(value) => updateManager("supportExpected", value)} rows={3} assistContext="manager" />
-            <TextAreaField label={t("reviewCadence")} value={contextInputs.manager.reviewCadence} onChange={(value) => updateManager("reviewCadence", value)} rows={3} assistContext="manager" />
+            <TextAreaField label={t("managerSupportExpected")} value={contextInputs.manager.supportExpected} onChange={(value) => updateManager("supportExpected", value)} rows={3} assistContext="manager" assistKey="managerSupportExpected" />
+            <TextAreaField label={t("reviewCadence")} value={contextInputs.manager.reviewCadence} onChange={(value) => updateManager("reviewCadence", value)} rows={3} assistContext="manager" assistKey="reviewCadence" />
           </div>
         </div>
       </div>
@@ -2266,13 +2267,221 @@ function Field({ label, required, children }: { label: string; required?: boolea
 type TextAssistContext = "general" | "assessment" | "program" | "role" | "self" | "manager" | "reflection" | "insight";
 type TextAssistAction = "improve" | "examples" | "specific" | "evidence" | "structure" | "impact";
 
-const textAssistActionConfig: Record<TextAssistAction, { labelKey: string; textKey: string; icon: typeof Sparkles }> = {
-  improve: { labelKey: "fieldAssistImprove", textKey: "fieldAssistImproveText", icon: Sparkles },
-  examples: { labelKey: "fieldAssistExamples", textKey: "fieldAssistExamplesText", icon: Lightbulb },
-  specific: { labelKey: "fieldAssistSpecific", textKey: "assistMakeSpecificText", icon: Target },
-  evidence: { labelKey: "fieldAssistEvidence", textKey: "assistEvidenceText", icon: ClipboardCheck },
-  structure: { labelKey: "fieldAssistStructure", textKey: "fieldAssistStructureText", icon: NotebookPen },
-  impact: { labelKey: "fieldAssistImpact", textKey: "fieldAssistImpactText", icon: Target },
+const textAssistActionConfig: Record<TextAssistAction, { labelKey: string; icon: typeof Sparkles }> = {
+  improve: { labelKey: "fieldAssistImprove", icon: Sparkles },
+  examples: { labelKey: "fieldAssistExamples", icon: Lightbulb },
+  specific: { labelKey: "fieldAssistSpecific", icon: Target },
+  evidence: { labelKey: "fieldAssistEvidence", icon: ClipboardCheck },
+  structure: { labelKey: "fieldAssistStructure", icon: NotebookPen },
+  impact: { labelKey: "fieldAssistImpact", icon: Target },
+};
+
+const fieldAssistTemplates: Record<string, Partial<Record<TextAssistAction, string>>> = {
+  assessmentSummary: {
+    structure:
+      "Assessment tool/provider:\nTop strengths indicated:\nPotential risks or development gaps:\nLeadership situations where this may show up:\nEvidence to confirm with manager or work examples:",
+    specific:
+      "Name the exact behavior from the assessment, where it appears at work, who is affected, and what should change in the next review period.",
+    evidence:
+      "Useful evidence: assessment scores or themes, assessor comments, 360 feedback, manager observations, project outcomes, or recent stakeholder feedback.",
+  },
+  programObjectives: {
+    structure:
+      "Program objective:\nLeadership behavior expected:\nBusiness or organizational outcome connected to it:\nHow the participant can apply this objective in role:",
+    examples:
+      "Examples: stakeholder influence, coaching conversations, leading change, execution discipline, strategic thinking, or cross-functional collaboration.",
+    specific:
+      "Convert broad program goals into 2-3 observable behaviors the participant can practice during the program.",
+    evidence:
+      "Link each objective to a module, assignment, faculty note, reflection, or program output that supports it.",
+  },
+  moduleThemes: {
+    structure:
+      "Module theme:\nKey concept or leadership capability:\nRelevant workplace application:\nReflection or assignment evidence:",
+    examples:
+      "Examples: leading self, leading team, leading business, customer centricity, innovation, coaching, accountability, or enterprise mindset.",
+    specific:
+      "List the themes in the order they were covered and connect each theme to one practical leadership behavior.",
+    evidence:
+      "Use module decks, participant assignments, reflection notes, or coach observations as evidence.",
+  },
+  facultyCoachNotes: {
+    structure:
+      "Faculty or coach observation:\nStrength noticed:\nDevelopment watch-out:\nSuggested practice:\nFollow-up evidence:",
+    examples:
+      "Examples: presence in discussion, quality of reflection, peer feedback, application of frameworks, or coaching recommendation.",
+    specific:
+      "Rewrite the note as a direct behavior plus the situation in which it was observed.",
+    evidence:
+      "Attach the note to a session, assignment, coaching conversation, or feedback moment.",
+  },
+  programLearningSummary: {
+    structure:
+      "Most important program takeaway:\nWhy it matters for my role:\nBehavior I will practice:\nBusiness or team impact I expect:",
+    examples:
+      "Examples: delegation, courageous conversations, strategic prioritization, stakeholder alignment, or leading through ambiguity.",
+    specific:
+      "Turn the learning into one commitment, one practice opportunity, and one success signal.",
+    evidence:
+      "Reference a program exercise, reflection, faculty feedback, or peer learning-circle input.",
+  },
+  futureRoleExpectations: {
+    structure:
+      "Future role or expanded scope:\nCapabilities required:\nBehaviors expected at that level:\nGaps to close now:",
+    examples:
+      "Examples: broader stakeholder management, financial ownership, leading managers, strategic influence, or regional execution.",
+    specific:
+      "Describe the next-role expectation as observable leadership behaviors and decisions, not only job titles.",
+    evidence:
+      "Use job descriptions, success profiles, competency frameworks, or manager expectations as evidence.",
+  },
+  organizationSuccessMeasures: {
+    structure:
+      "Success measure:\nWhy it matters to the organization:\nHow progress will be visible:\nReview owner or data source:",
+    examples:
+      "Examples: engagement, project delivery, customer outcome, quality improvement, retention, productivity, or innovation adoption.",
+    specific:
+      "Make each measure trackable with a clear stakeholder, metric, timeframe, or visible behavior.",
+    evidence:
+      "Connect the measure to strategy documents, role scorecards, competency frameworks, or manager goals.",
+  },
+  careerAspiration: {
+    improve:
+      "Aspiration:\nTarget role, scope, or contribution:\nWhy this matters now:\nCapabilities I want to strengthen:\nTime horizon:",
+    examples:
+      "Examples: lead a larger team, move into a regional role, influence enterprise priorities, build strategic depth, or prepare for a future P&L responsibility.",
+    specific:
+      "Name the role or scope, the timeframe, the leadership capability to build, and the business contribution you want to make.",
+    impact:
+      "Desired impact:\nWho should benefit:\nWhat should improve:\nHow progress will be visible:",
+  },
+  developmentPriorities: {
+    improve:
+      "Priority 1:\nWhy it matters:\nCurrent evidence:\nBehavior to practice:\nSuccess measure:",
+    examples:
+      "Examples: delegate with clarity, coach direct reports, influence stakeholders, make faster decisions, strengthen strategic communication.",
+    specific:
+      "Write each priority as an observable behavior, not a broad trait. Include audience, frequency, and expected outcome.",
+    impact:
+      "For each priority, connect the behavior change to team, customer, operational, or business impact.",
+  },
+  currentChallenges: {
+    improve:
+      "Current challenge:\nWhere it appears:\nWhat gets in the way:\nStakeholders affected:\nWhat better would look like:",
+    examples:
+      "Examples: managing ambiguity, aligning stakeholders, prioritizing work, coaching underperformance, or influencing without authority.",
+    specific:
+      "Describe one recent situation, the behavior pattern, and the cost of leaving it unchanged.",
+    impact:
+      "Explain how resolving this challenge would improve decisions, team confidence, execution, or stakeholder trust.",
+  },
+  desiredBusinessImpact: {
+    improve:
+      "Business outcome I want to influence:\nStakeholders affected:\nMetric or visible change:\nLeadership behavior needed:\nReview timeframe:",
+    examples:
+      "Examples: faster execution, stronger engagement, better customer outcomes, lower rework, improved collaboration, or clearer accountability.",
+    specific:
+      "State the business outcome, baseline or current challenge, target improvement, and the leadership behavior that will enable it.",
+    impact:
+      "Clarify what changes for the team or organization if this development priority succeeds.",
+  },
+  additionalContext: {
+    improve:
+      "Additional context:\nImportant constraint or opportunity:\nRelevant stakeholder or business situation:\nWhat the IDP should take into account:",
+    examples:
+      "Examples: new role, market pressure, transformation work, team change, manager expectation, or upcoming strategic project.",
+    specific:
+      "Add context that changes the recommendation: timing, role scope, organization priority, or personal constraint.",
+    impact:
+      "Explain why this context matters for the IDP and what risk or opportunity it creates.",
+  },
+  managerConversationSummary: {
+    structure:
+      "Manager conversation summary:\nKey message from manager:\nStrengths discussed:\nDevelopment needs discussed:\nAgreed next step:",
+    specific:
+      "Capture what the manager actually said, the situation it relates to, and the implication for the IDP.",
+    evidence:
+      "Useful evidence: performance conversation notes, project feedback, stakeholder input, examples of observed behavior, or agreed goals.",
+    impact:
+      "Clarify how the manager expects this development to improve team, business, or stakeholder outcomes.",
+  },
+  managerAgreedGoals: {
+    structure:
+      "Goal agreed with manager:\nWhy it matters:\nExpected behavior change:\nSuccess measure:\nReview date:",
+    specific:
+      "Make the goal concrete with a behavior, audience, timeframe, and result.",
+    evidence:
+      "Use manager commitments, role goals, performance priorities, or project outcomes as supporting evidence.",
+    impact:
+      "Connect the goal to the manager's expected business or team outcome.",
+  },
+  managerStrengths: {
+    structure:
+      "Strength identified by manager:\nExample where it showed up:\nHow to use it more deliberately:\nWhere it can support a development priority:",
+    specific:
+      "Name the strength as a behavior and include one observed example.",
+    evidence:
+      "Evidence can include manager feedback, stakeholder comments, performance results, or team observations.",
+    impact:
+      "Describe how this strength can create more visible value for the team or organization.",
+  },
+  managerDevelopmentAreas: {
+    structure:
+      "Development area identified by manager:\nObserved behavior or situation:\nImpact today:\nDesired behavior:\nSupport needed:",
+    specific:
+      "Focus on the behavior the manager wants to see more, less, or differently.",
+    evidence:
+      "Use recent examples, feedback themes, role expectations, or performance discussions as evidence.",
+    impact:
+      "Explain what improves for the team, stakeholders, or business if this area changes.",
+  },
+  managerSupportExpected: {
+    structure:
+      "Support expected from manager:\nType of support:\nWhen it is needed:\nHow it will help:\nHow we will review it:",
+    specific:
+      "Name a practical support action such as feedback, coaching, sponsorship, project exposure, or decision access.",
+    evidence:
+      "Link the support request to a development priority, role expectation, or manager-agreed goal.",
+    impact:
+      "Explain how the support will accelerate progress or remove a barrier.",
+  },
+  reviewCadence: {
+    structure:
+      "Review cadence:\nFrequency:\nDiscussion owner:\nEvidence to bring:\nDecision or adjustment expected after each review:",
+    specific:
+      "Set a clear rhythm such as fortnightly check-ins, monthly manager reviews, and a midpoint progress review.",
+    evidence:
+      "Bring progress notes, manager feedback, uploaded evidence, stakeholder comments, or metrics to each review.",
+    impact:
+      "Clarify how the cadence keeps the IDP active and prevents the plan from becoming a one-time document.",
+  },
+};
+
+const contextAssistTemplates: Record<TextAssistContext, Partial<Record<TextAssistAction, string>>> = {
+  general: {
+    improve: "Rewrite this as a clear development input with behavior, context, and intended outcome.",
+    examples: "Add 2-3 examples from recent work, feedback, stakeholder expectations, or business challenges.",
+    specific: "Make it observable by naming the behavior, audience, frequency, and expected outcome.",
+    evidence: "Add evidence such as feedback, assessment themes, work outputs, metrics, or manager observations.",
+    structure: "Structure this as context, evidence, leadership implication, development priority, and next action.",
+    impact: "Clarify who should experience the change, what should improve, and how progress will be noticed.",
+  },
+  assessment: {},
+  program: {},
+  role: {},
+  self: {},
+  manager: {},
+  reflection: {
+    improve: "Reflection:\nWhat I noticed:\nWhat I tried:\nWhat changed:\nWhat I will do next:",
+    examples: "Use a recent leadership situation, feedback moment, stakeholder conversation, or program application example.",
+    specific: "Name the situation, your behavior, the result, and the lesson for your next action.",
+    evidence: "Add evidence such as feedback, a completed action, a work output, or a measurable shift.",
+  },
+  insight: {
+    structure: "Insight:\nEvidence source:\nLeadership implication:\nPossible development priority:",
+    specific: "Turn the insight into a clear behavior pattern, where it appears, and why it matters.",
+    evidence: "Connect the insight to assessment results, uploaded documents, manager input, or participant examples.",
+  },
 };
 
 function getTextAssistActions(context: TextAssistContext): TextAssistAction[] {
@@ -2288,33 +2497,19 @@ function getFieldAssistText({
   action,
   context,
   fieldLabel,
-  translate,
+  assistKey,
 }: {
   action: TextAssistAction;
   context: TextAssistContext;
   fieldLabel?: string;
-  translate: (key: string) => string;
+  assistKey?: string;
 }) {
-  const header = fieldLabel ? `${fieldLabel}:\n` : "";
-  const actionText = translate(textAssistActionConfig[action].textKey);
-  const contextText =
-    context === "assessment"
-      ? `${translate("fieldAssistStructureText")}\n${translate("assistEvidenceText")}`
-      : context === "manager"
-        ? `${translate("fieldAssistStructureText")}\n${translate("fieldAssistImpactText")}`
-        : context === "program"
-          ? `${translate("fieldAssistStructureText")}\n${translate("fieldAssistExamplesText")}`
-          : context === "role"
-            ? `${translate("assistMakeSpecificText")}\n${translate("assistEvidenceText")}`
-            : context === "self"
-              ? `${translate("fieldAssistImproveText")}\n${translate("fieldAssistImpactText")}`
-              : context === "reflection"
-                ? `${translate("fieldAssistExamplesText")}\n${translate("assistEvidenceText")}`
-                : context === "insight"
-                  ? `${translate("assistEvidenceText")}\n${translate("assistMakeSpecificText")}`
-                  : translate("fieldAssistStructureText");
-
-  return `${header}${actionText}\n${contextText}`;
+  const template =
+    (assistKey ? fieldAssistTemplates[assistKey]?.[action] : undefined) ||
+    contextAssistTemplates[context]?.[action] ||
+    contextAssistTemplates.general[action] ||
+    "Add the relevant behavior, evidence, intended outcome, and next action.";
+  return fieldLabel ? `${fieldLabel}\n${template}` : template;
 }
 
 function appendAssistedText(currentValue: string, text: string) {
@@ -2331,6 +2526,7 @@ function AssistedTextarea({
   className = "",
   assistContext = "general",
   fieldLabel,
+  assistKey,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -2340,12 +2536,16 @@ function AssistedTextarea({
   className?: string;
   assistContext?: TextAssistContext;
   fieldLabel?: string;
+  assistKey?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const actions = getTextAssistActions(assistContext);
+  const language = i18n.language.split("-")[0];
+  const activeLanguage = isSupportedLanguageCode(language) ? language : "en";
 
   const applyAssist = (action: TextAssistAction) => {
-    onChange(appendAssistedText(value, getFieldAssistText({ action, context: assistContext, fieldLabel, translate: t })));
+    const assistText = getFieldAssistText({ action, context: assistContext, fieldLabel, assistKey });
+    onChange(appendAssistedText(value, activeLanguage === "en" ? assistText : translateReportText(assistText, activeLanguage)));
     toast.success(t("fieldAssistApplied"));
   };
 
@@ -2395,16 +2595,18 @@ function TextAreaField({
   onChange,
   rows = 3,
   assistContext = "general",
+  assistKey,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   rows?: number;
   assistContext?: TextAssistContext;
+  assistKey?: string;
 }) {
   return (
     <Field label={label}>
-      <AssistedTextarea value={value} onChange={onChange} rows={rows} assistContext={assistContext} fieldLabel={label} />
+      <AssistedTextarea value={value} onChange={onChange} rows={rows} assistContext={assistContext} fieldLabel={label} assistKey={assistKey} />
     </Field>
   );
 }

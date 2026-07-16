@@ -185,10 +185,13 @@ export type IdpReportConfiguration = {
   };
   showEvidenceConfidence: boolean;
   showAiDisclosure: boolean;
+  showObjectivesNavigator: boolean;
   useOrganizationBranding: boolean;
   printFriendlyView: boolean;
   customInstructions: string;
 };
+
+export type AdminReportSectionKey = keyof IdpReportConfiguration["enabledSections"];
 
 export type RevisionConfiguration = {
   allowParticipantRevisions: boolean;
@@ -258,14 +261,14 @@ export const adminAllowedFileTypeOptions = [
   ".xlsx",
 ] as const;
 
-export const adminReportSectionOptions: Array<keyof IdpReportConfiguration["enabledSections"]> = [
+export const adminReportSectionOptions: AdminReportSectionKey[] = [
   "purposeGuidance",
-  "executiveSummary",
   "employeeInformation",
+  "executiveSummary",
+  "strengthsAndGaps",
   "leadershipContext",
   "growThinkExecuteInspireAssessment",
   "evidenceSummary",
-  "strengthsAndGaps",
   "goalSettingCanvas",
   "developmentPriorities",
   "actionPlan",
@@ -283,6 +286,47 @@ export const adminReportSectionOptions: Array<keyof IdpReportConfiguration["enab
   "learningRecommendations",
   "signatures",
 ];
+
+export const fixedReportSectionOrder: AdminReportSectionKey[] = [
+  "purposeGuidance",
+  "employeeInformation",
+  "executiveSummary",
+  "strengthsAndGaps",
+];
+
+export const defaultAdjustableReportSectionOrder: AdminReportSectionKey[] = [
+  "leadershipContext",
+  "growThinkExecuteInspireAssessment",
+  "hitachiChallenge",
+  "growModel",
+  "actionPlan",
+  "signatures",
+  "goalSettingCanvas",
+  "developmentPriorities",
+  "evidenceSummary",
+  "masterclassReflectionJournal",
+  "midpointPeerFeedback",
+  "evidenceImpactTracker",
+  "finalIntegratedReflection",
+  "personalLeadershipCommitment",
+  "seniorLeaderWitness",
+  "continuationPlan",
+  "managerGuide",
+  "progressTracking",
+  "learningRecommendations",
+];
+
+export function buildReportSectionOrder(adjustableSections: AdminReportSectionKey[]) {
+  const adjustableSet = new Set(defaultAdjustableReportSectionOrder);
+  const normalizedAdjustable = uniqueList(
+    adjustableSections.filter((section) => adjustableSet.has(section))
+  );
+  return [
+    ...fixedReportSectionOrder,
+    ...normalizedAdjustable,
+    ...defaultAdjustableReportSectionOrder.filter((section) => !normalizedAdjustable.includes(section)),
+  ];
+}
 
 export const adminRevisionSectionOptions = [
   "participantProfile",
@@ -375,29 +419,7 @@ export function createDefaultAdminConfiguration(): AdminConfiguration {
       template: "standard",
       targetPageCount: "5-8 pages",
       maxPriorityCount: 3,
-      sectionOrder: [
-        "purposeGuidance",
-        "executiveSummary",
-        "employeeInformation",
-        "leadershipContext",
-        "growThinkExecuteInspireAssessment",
-        "evidenceSummary",
-        "developmentPriorities",
-        "goalSettingCanvas",
-        "actionPlan",
-        "hitachiChallenge",
-        "masterclassReflectionJournal",
-        "midpointPeerFeedback",
-        "evidenceImpactTracker",
-        "finalIntegratedReflection",
-        "personalLeadershipCommitment",
-        "seniorLeaderWitness",
-        "continuationPlan",
-        "growModel",
-        "managerGuide",
-        "progressTracking",
-        "signatures",
-      ],
+      sectionOrder: buildReportSectionOrder(defaultAdjustableReportSectionOrder),
       enabledSections: {
         purposeGuidance: true,
         executiveSummary: true,
@@ -425,6 +447,7 @@ export function createDefaultAdminConfiguration(): AdminConfiguration {
       },
       showEvidenceConfidence: true,
       showAiDisclosure: true,
+      showObjectivesNavigator: true,
       useOrganizationBranding: true,
       printFriendlyView: true,
       customInstructions:
@@ -667,10 +690,16 @@ export function normalizeAdminConfiguration(config: AdminConfiguration | Partial
     ...defaults.report.enabledSections,
     ...rawConfig.report?.enabledSections,
   };
-  const sectionOrder = uniqueList(
+  fixedReportSectionOrder.forEach((section) => {
+    reportEnabledSections[section] = true;
+  });
+  const rawReportSectionOrder = uniqueList(
     (rawConfig.report?.sectionOrder || defaults.report.sectionOrder).filter((section) =>
       adminReportSectionOptions.includes(section as keyof IdpReportConfiguration["enabledSections"])
     )
+  ) as AdminReportSectionKey[];
+  const sectionOrder = buildReportSectionOrder(
+    rawReportSectionOrder.filter((section) => !fixedReportSectionOrder.includes(section))
   );
   const editableSections = uniqueList(
     (rawConfig.revisions?.editableSections || defaults.revisions.editableSections).filter((section) =>
@@ -767,10 +796,11 @@ export function normalizeAdminConfiguration(config: AdminConfiguration | Partial
           : defaults.report.template,
       targetPageCount: rawConfig.report?.targetPageCount?.trim() || defaults.report.targetPageCount,
       maxPriorityCount: clampNumber(rawConfig.report?.maxPriorityCount ?? defaults.report.maxPriorityCount, 1, 5, defaults.report.maxPriorityCount),
-      sectionOrder: sectionOrder.length > 0 ? sectionOrder : defaults.report.sectionOrder,
+      sectionOrder,
       enabledSections: reportEnabledSections,
       showEvidenceConfidence: Boolean(rawConfig.report?.showEvidenceConfidence ?? defaults.report.showEvidenceConfidence),
       showAiDisclosure: Boolean(rawConfig.report?.showAiDisclosure ?? defaults.report.showAiDisclosure),
+      showObjectivesNavigator: Boolean(rawConfig.report?.showObjectivesNavigator ?? defaults.report.showObjectivesNavigator),
       useOrganizationBranding: Boolean(rawConfig.report?.useOrganizationBranding ?? defaults.report.useOrganizationBranding),
       printFriendlyView: Boolean(rawConfig.report?.printFriendlyView ?? defaults.report.printFriendlyView),
       customInstructions: rawConfig.report?.customInstructions || defaults.report.customInstructions,

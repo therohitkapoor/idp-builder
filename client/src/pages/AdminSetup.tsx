@@ -3,14 +3,18 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   Building2,
   CheckCircle2,
   ClipboardList,
   Download,
   FileCheck2,
+  GripVertical,
   KeyRound,
   LibraryBig,
   Loader2,
+  LockKeyhole,
   LogOut,
   Plus,
   RotateCcw,
@@ -51,11 +55,14 @@ import {
   adminAllowedFileTypeOptions,
   adminApproachOptions,
   adminEvidenceSectionOptions,
-  adminReportSectionOptions,
   adminRequiredFieldOptions,
   adminRevisionSectionOptions,
+  buildReportSectionOrder,
   createDefaultAdminConfiguration,
+  defaultAdjustableReportSectionOrder,
+  fixedReportSectionOrder,
   normalizeAdminConfiguration,
+  type AdminReportSectionKey,
   type AdminCompanyDocument,
   type AdminConfiguration,
   type AdminProgramDocument,
@@ -111,17 +118,17 @@ const reviewStatusLabels: Record<EvidenceReviewStatus, string> = {
   ready: "Ready for launch",
 };
 
-const reportSectionLabels: Record<keyof AdminConfiguration["report"]["enabledSections"], string> = {
+const reportSectionLabels: Record<AdminReportSectionKey, string> = {
   purposeGuidance: "Purpose and participant guidance",
-  executiveSummary: "Executive summary",
   employeeInformation: "Employee information",
+  executiveSummary: "IDP executive summary",
+  strengthsAndGaps: "Key strengths and key development gaps",
   leadershipContext: "Participant leadership context and aspirations",
   growThinkExecuteInspireAssessment: "Baseline GROW-THINK-EXECUTE-INSPIRE self-assessment",
   evidenceSummary: "Evidence summary",
-  strengthsAndGaps: "Strengths and gaps",
   goalSettingCanvas: "Development goal-setting canvas",
   developmentPriorities: "Development priorities",
-  actionPlan: "30-60-90 action plan",
+  actionPlan: "Development actions",
   hitachiChallenge: "One Hitachi Group Challenge leadership application",
   masterclassReflectionJournal: "Masterclass and MIT xPRO reflection journal",
   midpointPeerFeedback: "Midpoint review and peer learning-circle feedback",
@@ -134,8 +141,35 @@ const reportSectionLabels: Record<keyof AdminConfiguration["report"]["enabledSec
   managerGuide: "Manager discussion guide",
   progressTracking: "Progress tracking",
   learningRecommendations: "Learning recommendations",
-  signatures: "Employee and manager signatures",
+  signatures: "Approval signatures",
 };
+
+function getAdjustableReportSections(sectionOrder: string[]): AdminReportSectionKey[] {
+  const adjustableSet = new Set(defaultAdjustableReportSectionOrder);
+  const ordered = sectionOrder.filter(
+    (section): section is AdminReportSectionKey =>
+      adjustableSet.has(section as AdminReportSectionKey) && !fixedReportSectionOrder.includes(section as AdminReportSectionKey)
+  );
+  return [
+    ...ordered,
+    ...defaultAdjustableReportSectionOrder.filter((section) => !ordered.includes(section)),
+  ];
+}
+
+function moveReportSection(
+  sections: AdminReportSectionKey[],
+  section: AdminReportSectionKey,
+  targetSection: AdminReportSectionKey
+) {
+  if (section === targetSection) return sections;
+  const fromIndex = sections.indexOf(section);
+  const toIndex = sections.indexOf(targetSection);
+  if (fromIndex < 0 || toIndex < 0) return sections;
+  const next = [...sections];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
 
 const revisionSectionLabels: Record<string, string> = {
   participantProfile: "Participant profile",
@@ -371,6 +405,7 @@ export default function AdminSetup() {
   const [bulkParticipants, setBulkParticipants] = useState("");
   const [providerInput, setProviderInput] = useState("");
   const [programDocumentType, setProgramDocumentType] = useState<ProgramDocumentType>("program_brochure");
+  const [draggingReportSection, setDraggingReportSection] = useState<AdminReportSectionKey | null>(null);
   const { data, isLoading } = trpc.admin.getEnterpriseConfig.useQuery(undefined, {
     enabled: user?.role === "admin",
   });
@@ -418,6 +453,10 @@ export default function AdminSetup() {
   const normalizedConfig = useMemo(
     () => normalizeAdminConfiguration(config || createDefaultAdminConfiguration()),
     [config]
+  );
+  const adjustableReportSections = useMemo(
+    () => getAdjustableReportSections(normalizedConfig.report.sectionOrder),
+    [normalizedConfig.report.sectionOrder]
   );
 
   useEffect(() => {
@@ -975,11 +1014,39 @@ export default function AdminSetup() {
     updateConfig({ ...normalizedConfig, report: { ...normalizedConfig.report, ...patch } });
   };
 
+  const updateAdjustableReportSections = (sections: AdminReportSectionKey[]) => {
+    updateReport({ sectionOrder: buildReportSectionOrder(sections) });
+  };
+
+  const moveAdjustableReportSection = (section: AdminReportSectionKey, direction: "up" | "down") => {
+    const currentIndex = adjustableReportSections.indexOf(section);
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= adjustableReportSections.length) return;
+    const next = [...adjustableReportSections];
+    const [moved] = next.splice(currentIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    updateAdjustableReportSections(next);
+  };
+
+  const dropAdjustableReportSection = (targetSection: AdminReportSectionKey) => {
+    if (!draggingReportSection) return;
+    updateAdjustableReportSections(
+      moveReportSection(adjustableReportSections, draggingReportSection, targetSection)
+    );
+    setDraggingReportSection(null);
+  };
+
+  const resetReportSectionOrder = () => {
+    updateAdjustableReportSections(defaultAdjustableReportSectionOrder);
+    toast.success(tx("Report section order reset."));
+  };
+
   const updateRevisions = (patch: Partial<AdminConfiguration["revisions"]>) => {
     updateConfig({ ...normalizedConfig, revisions: { ...normalizedConfig.revisions, ...patch } });
   };
 
   const toggleReportSection = (section: keyof AdminConfiguration["report"]["enabledSections"]) => {
+    if (fixedReportSectionOrder.includes(section)) return;
     updateReport({
       enabledSections: {
         ...normalizedConfig.report.enabledSections,
@@ -1956,28 +2023,21 @@ export default function AdminSetup() {
                         }}
                       />
                     </Field>
-                    <Field label="Section order">
-                      <Input
-                        value={normalizedConfig.report.sectionOrder.join(", ")}
-                        onChange={(event) =>
-                          updateReport({
-                            sectionOrder: event.target.value.split(",").map((section) => section.trim()).filter(Boolean),
-                          })
-                        }
-                      />
-                    </Field>
                   </div>
 
-                  <Checklist title="Report sections">
-                    {adminReportSectionOptions.map((section) => (
-                      <CheckRow
-                        key={section}
-                        checked={normalizedConfig.report.enabledSections[section]}
-                        label={reportSectionLabels[section]}
-                        onChange={() => toggleReportSection(section)}
-                      />
-                    ))}
-                  </Checklist>
+                  <ReportSectionOrderEditor
+                    fixedSections={fixedReportSectionOrder}
+                    adjustableSections={adjustableReportSections}
+                    enabledSections={normalizedConfig.report.enabledSections}
+                    draggingSection={draggingReportSection}
+                    labels={reportSectionLabels}
+                    onToggle={toggleReportSection}
+                    onMove={moveAdjustableReportSection}
+                    onDragStart={setDraggingReportSection}
+                    onDragEnd={() => setDraggingReportSection(null)}
+                    onDrop={dropAdjustableReportSection}
+                    onReset={resetReportSectionOrder}
+                  />
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <SwitchRow
@@ -1997,6 +2057,16 @@ export default function AdminSetup() {
                       description="Display confidence and source context for confirmed insights."
                       checked={normalizedConfig.report.showEvidenceConfidence}
                       onCheckedChange={(checked) => updateReport({ showEvidenceConfidence: checked })}
+                    />
+                    <SwitchRow
+                      label="Show objectives navigator"
+                      description="Display a desktop side navigator for jumping between development priorities."
+                      checked={
+                        normalizedConfig.report.showObjectivesNavigator &&
+                        normalizedConfig.report.enabledSections.developmentPriorities
+                      }
+                      disabled={!normalizedConfig.report.enabledSections.developmentPriorities}
+                      onCheckedChange={(checked) => updateReport({ showObjectivesNavigator: checked })}
                     />
                     <SwitchRow
                       label="Show AI disclosure"
@@ -2120,6 +2190,146 @@ function SummaryCard({ icon: Icon, label, value }: { icon: typeof Building2; lab
   );
 }
 
+function ReportSectionOrderEditor({
+  fixedSections,
+  adjustableSections,
+  enabledSections,
+  draggingSection,
+  labels,
+  onToggle,
+  onMove,
+  onDragStart,
+  onDragEnd,
+  onDrop,
+  onReset,
+}: {
+  fixedSections: AdminReportSectionKey[];
+  adjustableSections: AdminReportSectionKey[];
+  enabledSections: Record<AdminReportSectionKey, boolean>;
+  draggingSection: AdminReportSectionKey | null;
+  labels: Record<AdminReportSectionKey, string>;
+  onToggle: (section: AdminReportSectionKey) => void;
+  onMove: (section: AdminReportSectionKey, direction: "up" | "down") => void;
+  onDragStart: (section: AdminReportSectionKey) => void;
+  onDragEnd: () => void;
+  onDrop: (section: AdminReportSectionKey) => void;
+  onReset: () => void;
+}) {
+  const tx = useAutoTranslatedText();
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">{tx("Report section sequence")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tx("Fixed sections stay at the top. Drag the remaining sections into the order you want in the IDP report.")}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onReset}
+          aria-label={tx("Reset report section order")}
+          title={tx("Reset report section order")}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[0.95fr_1.45fr]">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{tx("Fixed top sequence")}</p>
+          <div className="space-y-2">
+            {fixedSections.map((section, index) => (
+              <div key={section} className="flex min-h-12 items-center gap-3 rounded-md border bg-background p-3 text-sm">
+                <LockKeyhole className="h-4 w-4 shrink-0 text-primary" />
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1 font-medium">{tx(labels[section])}</span>
+                <Badge variant="secondary">{tx("Fixed")}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{tx("Adjustable report sections")}</p>
+          <div className="space-y-2">
+            {adjustableSections.map((section, index) => {
+              const isDragging = draggingSection === section;
+              return (
+                <div
+                  key={section}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", section);
+                    onDragStart(section);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    onDrop(section);
+                  }}
+                  onDragEnd={onDragEnd}
+                  className={`flex min-h-12 items-center gap-3 rounded-md border bg-background p-3 text-sm transition ${
+                    isDragging ? "border-primary bg-primary/5 opacity-70" : "hover:border-primary/40"
+                  }`}
+                >
+                  <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
+                    {fixedSections.length + index + 1}
+                  </span>
+                  <Checkbox
+                    checked={enabledSections[section]}
+                    onCheckedChange={() => onToggle(section)}
+                    aria-label={`${tx("Enable")} ${tx(labels[section])}`}
+                  />
+                  <span className={`min-w-0 flex-1 font-medium ${enabledSections[section] ? "" : "text-muted-foreground line-through"}`}>
+                    {tx(labels[section])}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={index === 0}
+                      onClick={() => onMove(section, "up")}
+                      aria-label={`${tx("Move up")} ${tx(labels[section])}`}
+                      title={`${tx("Move up")} ${tx(labels[section])}`}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={index === adjustableSections.length - 1}
+                      onClick={() => onMove(section, "down")}
+                      aria-label={`${tx("Move down")} ${tx(labels[section])}`}
+                      title={`${tx("Move down")} ${tx(labels[section])}`}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const tx = useAutoTranslatedText();
   return (
@@ -2165,20 +2375,22 @@ function SwitchRow({
   description,
   checked,
   onCheckedChange,
+  disabled,
 }: {
   label: string;
   description: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   const tx = useAutoTranslatedText();
   return (
-    <div className="flex items-start justify-between gap-4 rounded-md border p-4">
+    <div className="flex items-start justify-between gap-4 rounded-md border p-4 data-[disabled=true]:opacity-60" data-disabled={disabled}>
       <div>
         <p className="text-sm font-semibold">{tx(label)}</p>
         <p className="mt-1 text-sm text-muted-foreground">{tx(description)}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
     </div>
   );
 }

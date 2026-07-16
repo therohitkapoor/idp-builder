@@ -654,6 +654,7 @@ export default function IdpView() {
     sectionOrder?: string[];
     showEvidenceConfidence?: boolean;
     showAiDisclosure?: boolean;
+    showObjectivesNavigator?: boolean;
   };
   const reportSections = {
     purposeGuidance: true,
@@ -693,6 +694,10 @@ export default function IdpView() {
   const sectionOrderStyle = (section: ReportSectionKey) => ({
     order: reportSectionOrder.indexOf(section) >= 0 ? reportSectionOrder.indexOf(section) : 99,
   });
+  const showObjectivesNavigator =
+    reportConfiguration.showObjectivesNavigator !== false &&
+    reportSections.developmentPriorities &&
+    objectives.length > 0;
   const sourceFiles = translateReportRecord(((idp as any).sourceFiles || []), selectedLanguage) as Array<{
     id?: string;
     name: string;
@@ -972,8 +977,9 @@ export default function IdpView() {
 
       {/* Main Content */}
       <main className="container py-8 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+        <div className={`grid grid-cols-1 gap-6 ${showObjectivesNavigator ? "lg:grid-cols-[280px_1fr]" : ""}`}>
           {/* Side Panel - Only visible on desktop, hidden in print */}
+          {showObjectivesNavigator && (
           <aside className="hidden lg:block print:hidden">
             <ObjectivesNav 
               objectives={objectives}
@@ -985,6 +991,7 @@ export default function IdpView() {
               }}
             />
           </aside>
+          )}
           
           {/* Main Content Area */}
           <div ref={printRef} className="flex flex-col gap-8">

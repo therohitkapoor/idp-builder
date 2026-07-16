@@ -25,7 +25,40 @@ describe("enterprise admin configuration", () => {
     expect(config.companyKnowledge.flagEvidenceConflicts).toBe(true);
     expect(config.report.maxPriorityCount).toBe(3);
     expect(config.report.enabledSections.managerGuide).toBe(true);
+    expect(config.report.showObjectivesNavigator).toBe(true);
+    expect(config.report.sectionOrder.slice(0, 4)).toEqual([
+      "purposeGuidance",
+      "employeeInformation",
+      "executiveSummary",
+      "strengthsAndGaps",
+    ]);
     expect(config.revisions.allowManagerSuggestedEdits).toBe(true);
+  });
+
+  it("keeps fixed report sections locked at the top when normalizing report order", () => {
+    const config = createDefaultAdminConfiguration() as AdminConfiguration;
+    config.report.sectionOrder = [
+      "learningRecommendations",
+      "employeeInformation",
+      "signatures",
+      "purposeGuidance",
+      "executiveSummary",
+      "strengthsAndGaps",
+    ];
+    config.report.enabledSections.purposeGuidance = false;
+    config.report.enabledSections.employeeInformation = false;
+
+    const normalized = normalizeAdminConfiguration(config);
+
+    expect(normalized.report.sectionOrder.slice(0, 4)).toEqual([
+      "purposeGuidance",
+      "employeeInformation",
+      "executiveSummary",
+      "strengthsAndGaps",
+    ]);
+    expect(normalized.report.sectionOrder.slice(4, 6)).toEqual(["learningRecommendations", "signatures"]);
+    expect(normalized.report.enabledSections.purposeGuidance).toBe(true);
+    expect(normalized.report.enabledSections.employeeInformation).toBe(true);
   });
 
   it("stores participants explicitly under their organization", () => {
