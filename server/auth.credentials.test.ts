@@ -4,6 +4,7 @@ import { loginWithCredentials, saveAdminConfiguration } from "./db";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
 import { createDefaultAdminConfiguration } from "../shared/adminConfig";
 import type { TrpcContext } from "./_core/context";
+import { sdk } from "./_core/sdk";
 
 type CookieCall = {
   name: string;
@@ -54,6 +55,54 @@ describe("auth.login", () => {
       httpOnly: true,
       path: "/",
     });
+  });
+
+  it("authenticates the issued credential session cookie without requiring an OAuth app id", async () => {
+    const { ctx, cookies } = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await caller.auth.login({
+      email: "admin@idp.local",
+      password: "Admin@123",
+    });
+
+    const sessionCookie = cookies[0];
+    expect(sessionCookie?.name).toBe(COOKIE_NAME);
+
+    const authenticatedRequest = {
+      protocol: "https",
+      headers: {
+        cookie: `${COOKIE_NAME}=${sessionCookie?.value}`,
+      },
+    } as TrpcContext["req"];
+    const authenticatedUser = await sdk.authenticateRequest(authenticatedRequest);
+
+    const authenticatedCaller = appRouter.createCaller({
+      user: authenticatedUser,
+      req: authenticatedRequest,
+      res: {
+        cookie: vi.fn(),
+        clearCookie: vi.fn(),
+      } as unknown as TrpcContext["res"],
+    });
+
+    const me = await authenticatedCaller.auth.me();
+
+    expect(me).toMatchObject({
+      email: "admin@idp.local",
+      role: "admin",
+    });
+  });
+
+  it("rejects a tampered credential session cookie", async () => {
+    await expect(
+      sdk.authenticateRequest({
+        protocol: "https",
+        headers: {
+          cookie: `${COOKIE_NAME}=not-a-valid-token`,
+        },
+      } as TrpcContext["req"])
+    ).rejects.toThrow("Invalid session cookie");
   });
 
   it("signs in a user account with the user role", async () => {
