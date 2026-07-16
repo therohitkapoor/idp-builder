@@ -52,7 +52,7 @@ export default function Login() {
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async (result) => {
       utils.auth.me.setData(undefined, result.user);
-      await utils.auth.me.invalidate();
+      void utils.auth.me.invalidate();
       toast.success(`Signed in as ${result.user.role === "admin" ? "Admin" : "User"}.`);
       window.location.assign(result.user.role === "admin" ? "/dashboard" : "/home");
     },
